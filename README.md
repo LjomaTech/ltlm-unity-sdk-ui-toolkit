@@ -37,7 +37,7 @@ Or via Package Manager UI: **Window → Package Manager → + → Add package fr
 ## Quick Start
 
 1. Import the package via Package Manager
-2. Add prefabs from `Prefabs/` to your scene
+2. Add LTLM-UI prefab from `Prefabs/` to your scene
 3. Configure your project keys in the LTLM Manager
 4. The UI automatically connects to LTLM services
 
@@ -45,10 +45,7 @@ Or via Package Manager UI: **Window → Package Manager → + → Add package fr
 
 | Prefab | Description |
 |--------|-------------|
-| `LTLMLoginPanel` | Email login with OTP verification |
-| `LTLMActivationPanel` | License key entry and activation |
-| `LTLMLicenseCard` | License status display card |
-| `LTLMTokenCounter` | Token balance indicator |
+| `LTLM-UI` | Complete LTLM-UI Presistance Canvas with all functionality. fully modular for edits. |
 
 ## Customization
 
@@ -60,7 +57,7 @@ All UI uses Unity's UI system with TextMeshPro. Customize by:
 ## Dependencies
 
 - [LTLM SDK](https://github.com/LjomaTech/ltlm-unity-sdk.git) - Core licensing SDK
-- [LjomaTech Forms](https://github.com/LjomaTech/unity-forms.git) - Form management
+- [LjomaTech Unity Forms](https://github.com/LjomaTech/unity-forms.git) - Form management
 - TextMeshPro 3.0+
 
 ## Documentation

@@ -23,8 +23,10 @@
     ],
     "license": "MIT",
     "dependencies": {
-        "com.ljomatech.ltlm": "https://github.com/LjomaTech/ltlm-unity-sdk.git",
-        "com.ljomatech.forms": "https://github.com/LjomaTech/unity-forms.git",
         "com.unity.textmeshpro": "3.0.0"
+    },
+    "gitDependencies": {
+        "com.ljomatech.ltlm": "https://github.com/LjomaTech/ltlm-unity-sdk.git",
+        "com.ljomatech.forms": "https://github.com/LjomaTech/unity-forms.git"
     }
 }

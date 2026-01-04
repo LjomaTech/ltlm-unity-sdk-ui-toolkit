@@ -17,7 +17,7 @@ namespace LTLM.UI
         Start,
         Error,
         ActivateLicense,
-        Shop,
+        ControlPanel,
         SeatManagement,
     }
 
@@ -38,6 +38,7 @@ namespace LTLM.UI
 
         public GameObject[] Pages;
         public GameObject[] Commons;
+        public UITextInjector WelcomeInjector;
         public UITextInjector ErrorInjector;
         public Button[] ErrorsButtons;
 
@@ -51,7 +52,7 @@ namespace LTLM.UI
         FeatureBinding.Login |
         FeatureBinding.Airgapped |
         FeatureBinding.Shop |
-        FeatureBinding.Logout;
+        FeatureBinding.ControlSettings;
         
         #endregion
 
@@ -135,26 +136,26 @@ namespace LTLM.UI
             {
                 ErrorInjector.WriteText("You have been released from this seat.");
                 SetActivePage(LTLMUIPages.Error);
-                var topups = LTLMManager.Instance.ActiveLicense.policy.config.customerActions.topUpOptions;
+                var topups = LTLMManager.Instance.ActiveLicense.policy.topUpOptions;
                 var haveTopupForSeats = topups.Any(x => x.seats != 0);
-                var isSellable = LTLMManager.Instance.ActiveLicense.policy.config.visibility.storefront;
+                var isSellable = features.HasFlag(FeatureBinding.Shop);
                 EnableErrorButtons(true, true, isSellable, haveTopupForSeats && isSellable);
             }
             else if (status == "KICKED")
             {
                 ErrorInjector.WriteText("You have been kicked from this seat from portal.");
                 SetActivePage(LTLMUIPages.Error);
-                var topups = LTLMManager.Instance.ActiveLicense.policy.config.customerActions.topUpOptions;
+                var topups = LTLMManager.Instance.ActiveLicense.policy.topUpOptions;
                 var haveTopupForSeats = topups.Any(x => x.seats != 0);
-                var isSellable = LTLMManager.Instance.ActiveLicense.policy.config.visibility.storefront;
+                var isSellable = features.HasFlag(FeatureBinding.Shop);
                 EnableErrorButtons(true, true, isSellable, haveTopupForSeats && isSellable);
             }
             else if (status == "NO_SEAT")
             {
                 ErrorInjector.WriteText("You have exceeded the maximum number of seats.");
-                var topups = LTLMManager.Instance.ActiveLicense.policy.config.customerActions.topUpOptions;
+                var topups = LTLMManager.Instance.ActiveLicense.policy.topUpOptions;
                 var haveTopupForSeats = topups.Any(x => x.seats != 0);
-                var isSellable = LTLMManager.Instance.ActiveLicense.policy.config.visibility.storefront;
+                var isSellable = features.HasFlag(FeatureBinding.Shop);
                 EnableErrorButtons(true, true, isSellable, haveTopupForSeats && isSellable);
                 SetActivePage(LTLMUIPages.Error);
             }
@@ -181,10 +182,9 @@ namespace LTLM.UI
                     // TODO: Built here a smart system that helps the customer go which way.
                     ErrorInjector.WriteText("License is expired. Buy a new license or a time Topup..");
                     SetActivePage(LTLMUIPages.Error);
-                    var topups = LTLMManager.Instance.ActiveLicense.policy.config.customerActions.topUpOptions;
+                    var topups = LTLMManager.Instance.ActiveLicense.policy.topUpOptions;
                     var haveTopupForDays = topups.Any(x => x.days != 0);
-                    var isSellable = LTLMManager.Instance.ActiveLicense.policy.config.visibility.storefront;
-
+                    var isSellable = features.HasFlag(FeatureBinding.Shop);
                     EnableErrorButtons(false, true, isSellable, haveTopupForDays && isSellable);
 
                     break;
@@ -242,11 +242,23 @@ namespace LTLM.UI
                 {
                     case LicenseStatus.Active:
                         if (ShouldShowStartPage)
+                        {
+                            string name;
+                            if (LTLMManager.Instance.ActiveLicense.customer.metadata["name"] != null)
+                            {
+                                name = LTLMManager.Instance.ActiveLicense.customer.metadata["name"].ToString();
+                            }
+                            else
+                            {
+                                name = LTLMManager.Instance.ActiveLicense.customer.email;
+                            }
+                            WelcomeInjector.WriteText(name);
                             SetActivePage(LTLMUIPages.Start);
+                        }
+                        
                         else
                         {
                             HideUI();
-                            Debug.Log(LTLMManager.Instance.IsAuthenticated);
                         }
 
                         break;

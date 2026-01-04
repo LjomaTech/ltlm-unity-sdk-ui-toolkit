@@ -18,6 +18,11 @@ public class LoginPageController : MonoBehaviour
         });
     }
 
+    private void OnEnable()
+    {
+        SetActiveStep(0);
+    }
+
     public void SetActiveStep(int step)
     {
         for (int i = 0; i < LoginFlowPages.Length; i++)

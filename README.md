@@ -5,47 +5,47 @@
 
 Pre-built UI components for the **LTLM License & Token Management SDK**. Drop-in UI for license activation, login flows, and customer portal interfaces.
 
+> **Note:** This repository is provided as source code reference. Import the Unity package file or copy the source directly into your project.
+
 ## Installation
 
-### Unity Package Manager (Recommended)
+### Option 1: Unity Package File
 
-Add to your `manifest.json`:
+Download the latest `.unitypackage` from [Releases](https://github.com/LjomaTech/ltlm-unity-sdk-ui-toolkit/releases) and import via **Assets → Import Package → Custom Package**.
 
-```json
-{
-  "dependencies": {
-    "com.ljomatech.ltlm.uitoolkit": "https://github.com/LjomaTech/ltlm-unity-sdk-ui-toolkit.git"
-  }
-}
-```
+### Option 2: Copy Source
 
-This will automatically install dependencies:
-- [LTLM SDK](https://github.com/LjomaTech/ltlm-unity-sdk.git)
-- [LjomaTech Forms](https://github.com/LjomaTech/unity-forms.git)
+Clone this repository and copy the contents into your Unity project's `Assets` folder.
 
-Or via Package Manager UI: **Window → Package Manager → + → Add package from git URL**
+### Required Dependencies
 
-## Features
+You must install these dependencies separately:
 
-- **License Activation UI** - Complete activation flow with key input
-- **OTP Login** - Email-based one-time password authentication
-- **License Dashboard** - Display license status, expiry, capabilities
-- **Seat Management** - View and release concurrent seats
-- **Token Display** - Show token balance and consumption
-- **Offline Activation** - Air-gapped license support
+1. **LTLM SDK** - Add to `manifest.json`:
+   ```json
+   "com.ljomatech.ltlm": "https://github.com/LjomaTech/ltlm-unity-sdk.git"
+   ```
+
+2. **LjomaTech Unity Forms** - Add to `manifest.json`:
+   ```json
+   "com.ljomatech.forms": "https://github.com/LjomaTech/unity-forms.git"
+   ```
+
+3. **TextMeshPro** - Install via Package Manager (built-in)
 
 ## Quick Start
 
-1. Import the package via Package Manager
-2. Add LTLM-UI prefab from `Prefabs/` to your scene
-3. Configure your project keys in the LTLM Manager
-4. The UI automatically connects to LTLM services
+1. Import the package or copy source files
+2. Install required dependencies (see above)
+3. Add LTLM-UI prefab from `Prefabs/` to your scene
+4. Configure your project keys in the LTLM Manager
+5. The UI automatically connects to LTLM services
 
 ## Prefabs
 
 | Prefab | Description |
 |--------|-------------|
-| `LTLM-UI` | Complete LTLM-UI Presistance Canvas with all functionality. fully modular for edits. |
+| `LTLM-UI` | Complete LTLM-UI Persistence Canvas with all functionality. Fully modular for edits. |
 
 ## Customization
 

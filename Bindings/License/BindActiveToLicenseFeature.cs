@@ -10,39 +10,41 @@ public enum LicenseFeatureType
 {
     /// <summary>License has a time-based expiration (not perpetual)</summary>
     HasExpiration,
-    
+
     /// <summary>License is perpetual (no expiration)</summary>
     IsPerpetual,
-    
+
     /// <summary>Token consumption is enabled</summary>
     TokensEnabled,
-    
+
     /// <summary>Concurrent seat management is enabled</summary>
     SeatsEnabled,
-    
+
     /// <summary>License is a subscription (has billing date)</summary>
     IsSubscription,
-    
+
     /// <summary>License is a one-time purchase (not subscription)</summary>
     IsOneTimePurchase,
-    
+
     /// <summary>Offline mode is allowed</summary>
     OfflineEnabled,
-    
+
     /// <summary>Check if specific capability is enabled</summary>
     HasCapability,
-    
+
     /// <summary>License is currently active</summary>
     IsActive,
-    
+
     /// <summary>License is in trial period</summary>
     IsTrial,
-    
+
     /// <summary>User can release their own devices</summary>
     CanReleaseDevices,
-    
+
     /// <summary>User can release other seats</summary>
-    CanReleaseSeats
+    CanReleaseSeats,
+
+    GracePeriod
 }
 
 /// <summary>
@@ -51,21 +53,19 @@ public enum LicenseFeatureType
 /// </summary>
 public class BindActiveToLicenseFeature : MonoBehaviour
 {
-    [Header("Feature Check")]
-    [Tooltip("Which feature to check")]
+    [Header("Feature Check")] [Tooltip("Which feature to check")]
     public LicenseFeatureType feature;
-    
+
     [Tooltip("Invert the check (activate when feature is NOT present)")]
     public bool invertCheck = false;
 
-    [Header("Capability Check")]
-    [Tooltip("Name of capability to check (only used when feature is HasCapability)")]
+    [Header("Capability Check")] [Tooltip("Name of capability to check (only used when feature is HasCapability)")]
     public string capabilityName;
 
     [Header("Behavior")]
     [Tooltip("If true, activates this GameObject when condition is met. If false, activates target object.")]
     public bool activateSelf = true;
-    
+
     [Tooltip("Alternative GameObject to activate/deactivate (if activateSelf is false)")]
     public GameObject targetObject;
 
@@ -74,9 +74,9 @@ public class BindActiveToLicenseFeature : MonoBehaviour
         // Subscribe to license events
         LTLMManager.OnValidationCompleted += OnValidationCompleted;
         LTLMManager.OnLicenseStatusChanged += OnLicenseStatusChanged;
-        
+
         // Update immediately
-        UpdateActivation();
+        // UpdateActivation();
     }
 
     private void OnDisable()
@@ -102,7 +102,7 @@ public class BindActiveToLicenseFeature : MonoBehaviour
     public void UpdateActivation()
     {
         bool conditionMet = CheckFeature();
-        
+
         if (invertCheck)
         {
             conditionMet = !conditionMet;
@@ -127,7 +127,7 @@ public class BindActiveToLicenseFeature : MonoBehaviour
     {
         var manager = LTLMManager.Instance;
         if (manager == null) return false;
-        
+
         var license = manager.ActiveLicense;
         if (license == null) return false;
 
@@ -135,6 +135,9 @@ public class BindActiveToLicenseFeature : MonoBehaviour
         {
             switch (feature)
             {
+                case LicenseFeatureType.GracePeriod:
+                    return license.status == "grace_period";
+
                 case LicenseFeatureType.HasExpiration:
                     return HasExpiration(license);
 
@@ -187,36 +190,18 @@ public class BindActiveToLicenseFeature : MonoBehaviour
     private bool HasExpiration(LicenseData license)
     {
         // No expiration date = perpetual
-        if (license.validUntil == null || license.validUntil == DateTime.MinValue)
+        if (license.policy.type == "perpetual" || license.config?.limits?.time?.mode != "duration")
         {
             return false;
         }
-        
-        // Very far future = perpetual
-        if (license.validUntil > DateTime.Now.AddYears(50))
-        {
-            return false;
-        }
-        
+
         return true;
     }
 
     private bool IsSubscription(LicenseData license)
     {
-        // Check for subscription indicators
-        if (!string.IsNullOrEmpty(license.subscriptionStatus))
-        {
-            return true;
-        }
-        
-        // Has billing date = subscription
-        if (license.nextBillingDate != null && license.nextBillingDate != DateTime.MinValue)
-        {
-            return true;
-        }
-        
         // Check policy type
         string policyType = license.policy?.type?.ToLower();
-        return policyType == "subscription" || policyType == "recurring";
+        return policyType == "subscription" || policyType == "trial";
     }
 }

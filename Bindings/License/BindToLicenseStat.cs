@@ -13,43 +13,33 @@ public enum LicenseStat
     ExpiresAt,
     NextBillingDate,
     DaysRemaining,
-    
+
     // Tokens
     TokensConsumed,
     TokensLimit,
     TokensRemaining,
-    
+
     // Seats
     ActiveSeats,
     MaxSeats,
     SeatsRemaining,
-    
+
     // Devices/HWID
     ActiveDevices,
     MaxDevices,
     DevicesRemaining,
-    
+
     // License Info
     LicenseType,
     LicenseStatus,
     LicenseKey,
     PolicyName,
-    
+
     // Subscription
     SubscriptionStatus,
-    
+
     // Capability (requires CapabilityName to be set)
     CapabilityEnabled
-}
-
-/// <summary>
-/// Sub-type for stats that have Current/Max/Remaining variants
-/// </summary>
-public enum StatType
-{
-    Current,
-    Max,
-    Remaining
 }
 
 /// <summary>
@@ -59,30 +49,24 @@ public enum StatType
 [RequireComponent(typeof(TMP_Text))]
 public class BindToLicenseStat : MonoBehaviour
 {
-    [Header("Stat Configuration")]
-    [Tooltip("Which license stat to display")]
+    [Header("Stat Configuration")] [Tooltip("Which license stat to display")]
     public LicenseStat stat;
     
-    [Tooltip("For stats with variants (tokens, seats, devices)")]
-    public StatType statType = StatType.Current;
-
-    [Header("Capability Check")]
-    [Tooltip("Name of capability to check (only used when stat is CapabilityEnabled)")]
+    [Header("Capability Check")] [Tooltip("Name of capability to check (only used when stat is CapabilityEnabled)")]
     public string capabilityName;
 
-    [Header("Formatting")]
-    [Tooltip("Format string for dates (e.g., 'MMM dd, yyyy')")]
+    [Header("Formatting")] [Tooltip("Format string for dates (e.g., 'MMM dd, yyyy')")]
     public string dateFormat = "MMM dd, yyyy";
-    
+
     [Tooltip("Text to show for perpetual licenses")]
     public string perpetualText = "Perpetual";
-    
+
     [Tooltip("Text to show when value is not available")]
     public string notAvailableText = "-";
-    
+
     [Tooltip("Prefix to add before the value")]
     public string prefix = "";
-    
+
     [Tooltip("Suffix to add after the value")]
     public string suffix = "";
 
@@ -100,7 +84,7 @@ public class BindToLicenseStat : MonoBehaviour
         LTLMManager.OnLicenseStatusChanged += OnLicenseStatusChanged;
         LTLMManager.OnTokensConsumed += OnTokensConsumed;
         LTLMManager.OnSeatStatusChanged += OnSeatStatusChanged;
-        
+
         // Update immediately with current data
         UpdateValue();
     }
@@ -126,8 +110,8 @@ public class BindToLicenseStat : MonoBehaviour
 
     private void OnTokensConsumed(LicenseData license)
     {
-        if (stat == LicenseStat.TokensConsumed || 
-            stat == LicenseStat.TokensLimit || 
+        if (stat == LicenseStat.TokensConsumed ||
+            stat == LicenseStat.TokensLimit ||
             stat == LicenseStat.TokensRemaining)
         {
             UpdateValue();
@@ -136,8 +120,8 @@ public class BindToLicenseStat : MonoBehaviour
 
     private void OnSeatStatusChanged(string seatStatus, int activeSeats, int maxSeats)
     {
-        if (stat == LicenseStat.ActiveSeats || 
-            stat == LicenseStat.MaxSeats || 
+        if (stat == LicenseStat.ActiveSeats ||
+            stat == LicenseStat.MaxSeats ||
             stat == LicenseStat.SeatsRemaining)
         {
             UpdateValue();
@@ -160,7 +144,14 @@ public class BindToLicenseStat : MonoBehaviour
     {
         if (license == null)
         {
-            return notAvailableText;
+            if (LTLMManager.Instance.ActiveLicense == null)
+            {
+                return notAvailableText;
+            }
+            else
+            {
+                license = LTLMManager.Instance.ActiveLicense;
+            }
         }
 
         try
@@ -169,34 +160,30 @@ public class BindToLicenseStat : MonoBehaviour
             {
                 // ===== Time-based =====
                 case LicenseStat.ExpiresAt:
-                    if (license.validUntil == null || license.validUntil == DateTime.MinValue)
+                    var datetime = DateTime.Parse(license.validUntil).ToString("dd-MM-yyyy");
+                    if (license.policy.type == "perpetual" || license.config?.limits?.time?.mode != "duration")
                     {
                         return perpetualText;
                     }
                     // Check if it's a very far future date (perpetual)
-                    if (license.validUntil > DateTime.Now.AddYears(50))
-                    {
-                        return perpetualText;
-                    }
-                    return license.validUntil?.ToString(dateFormat) ?? notAvailableText;
+
+                    return datetime ?? notAvailableText;
 
                 case LicenseStat.NextBillingDate:
-                    if (license.nextBillingDate == null || license.nextBillingDate == DateTime.MinValue)
+                    if (license.policy.type == "perpetual" || license.config?.limits?.time?.mode != "duration")
                     {
                         return notAvailableText;
                     }
-                    return license.nextBillingDate?.ToString(dateFormat) ?? notAvailableText;
+
+                    return DateTime.Parse(license.nextBillingDate).ToString("dd-MM-yyyy") ?? notAvailableText;
 
                 case LicenseStat.DaysRemaining:
-                    if (license.validUntil == null || license.validUntil == DateTime.MinValue)
+                    if (license.policy.type == "perpetual" || license.config?.limits?.time?.mode != "duration")
                     {
                         return perpetualText;
                     }
-                    if (license.validUntil > DateTime.Now.AddYears(50))
-                    {
-                        return perpetualText;
-                    }
-                    var days = (license.validUntil.Value - DateTime.Now).Days;
+
+                    var days = (DateTime.Parse(license.validUntil) - DateTime.Now).Days;
                     return days >= 0 ? days.ToString() : "0";
 
                 // ===== Tokens =====
@@ -228,13 +215,13 @@ public class BindToLicenseStat : MonoBehaviour
 
                 // ===== Devices =====
                 case LicenseStat.ActiveDevices:
-                    return (license.machines?.Length ?? 0).ToString();
+                    return (license.machines?.Count ?? 0).ToString(); 
 
                 case LicenseStat.MaxDevices:
                     return (license.maxActivations ?? 1).ToString();
 
                 case LicenseStat.DevicesRemaining:
-                    int devicesRemaining = (license.maxActivations ?? 1) - (license.machines?.Length ?? 0);
+                    int devicesRemaining = (license.maxActivations ?? 1) - (license.machines?.Count ?? 0);
                     return Math.Max(0, devicesRemaining).ToString();
 
                 // ===== License Info =====
@@ -274,7 +261,7 @@ public class BindToLicenseStat : MonoBehaviour
     private string FormatStatus(string status)
     {
         if (string.IsNullOrEmpty(status)) return notAvailableText;
-        
+
         return status.ToLower() switch
         {
             "active" => "Active",
@@ -291,7 +278,7 @@ public class BindToLicenseStat : MonoBehaviour
     private string FormatSubscriptionStatus(string status)
     {
         if (string.IsNullOrEmpty(status)) return notAvailableText;
-        
+
         return status.ToLower() switch
         {
             "active" => "Active",

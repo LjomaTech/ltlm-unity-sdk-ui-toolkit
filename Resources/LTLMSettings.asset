@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca8623b2319a1e3468875d2490f357d0, type: 3}
+  m_Name: LTLMSettings
+  m_EditorClassIdentifier: 
+  projectId: 3
+  projectName: Spin The Wheel
+  publicKey: '-----BEGIN PUBLIC KEY-----
+
+    MCowBQYDK2VwAyEA54gV3B1W0n8pnn9icCxLiGcCLxTKx6K96XJCKYmybUQ=
+
+    -----END
+    PUBLIC KEY-----'
+  secretKey: 90ec9df75358faaa9012bfc2ceb731437434d657eb340e8646c67bb7692037a9
+  capabilities:
+  - data_registration
+  - stock_management
+  - giveaway_log
+  - giveaway_log_online
+  - confettiOnWin
+  analyticsEvents:
+  - Wheel_Spin (if a wheel is spun.)

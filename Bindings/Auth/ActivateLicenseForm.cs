@@ -10,7 +10,7 @@ namespace LTLM.UI
         {
             if (LTLM.SDK.Unity.LTLMManager.Instance.IsAuthenticated)
             {
-                // Already authenticated - this shouldn't happen normally
+                // Already authenticated - just succeed
                 SendCallback(true, null);
                 return;
             }
@@ -20,7 +20,7 @@ namespace LTLM.UI
                 if (status != LicenseStatus.Active)
                 {
                     SendCallback(false, new Dictionary<string, string>(new[] { new KeyValuePair<string, string>("licenseKey", "Activation Failed, License is currently " +  status.ToString()) }));
-                    return; // BUG FIX: Was missing return, causing SendCallback(true) to be called after error
+                    return; // CRITICAL: Was missing - caused SendCallback(true) to run after error
                 }
                 SendCallback(true, null);
             }, (error) =>

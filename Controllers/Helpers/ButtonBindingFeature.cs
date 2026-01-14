@@ -9,9 +9,9 @@ public enum FeatureBinding
 {
     None = 0,
     Login = 1 << 1,
-    Logout= 1 << 2,
+    ControlSettings = 1 << 2,
     Shop = 1 << 3,
-    Airgapped= 1 << 4,
+    Airgapped = 1 << 4,
 }
 
 

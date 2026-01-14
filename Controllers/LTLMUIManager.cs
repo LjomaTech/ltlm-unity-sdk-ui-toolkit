@@ -131,30 +131,26 @@ namespace LTLM.UI
 
         private void LTLMManagerOnOnSeatStatusChanged(string status, int currentSeats, int maxSeats)
         {
+            var license = LTLMManager.Instance.ActiveLicense;
+            var topups = license?.policy?.config?.customerActions?.topUpOptions;
+            var haveTopupForSeats = topups?.Any(x => x.seats != 0) ?? false;
+            var isSellable = license?.policy?.config?.visibility?.storefront ?? false;
+            
             if (status == "RELEASED" && isForcingSignout == false)
             {
                 ErrorInjector.WriteText("You have been released from this seat.");
                 SetActivePage(LTLMUIPages.Error);
-                var topups = LTLMManager.Instance.ActiveLicense.policy.config.customerActions.topUpOptions;
-                var haveTopupForSeats = topups.Any(x => x.seats != 0);
-                var isSellable = LTLMManager.Instance.ActiveLicense.policy.config.visibility.storefront;
                 EnableErrorButtons(true, true, isSellable, haveTopupForSeats && isSellable);
             }
             else if (status == "KICKED")
             {
                 ErrorInjector.WriteText("You have been kicked from this seat from portal.");
                 SetActivePage(LTLMUIPages.Error);
-                var topups = LTLMManager.Instance.ActiveLicense.policy.config.customerActions.topUpOptions;
-                var haveTopupForSeats = topups.Any(x => x.seats != 0);
-                var isSellable = LTLMManager.Instance.ActiveLicense.policy.config.visibility.storefront;
                 EnableErrorButtons(true, true, isSellable, haveTopupForSeats && isSellable);
             }
             else if (status == "NO_SEAT")
             {
                 ErrorInjector.WriteText("You have exceeded the maximum number of seats.");
-                var topups = LTLMManager.Instance.ActiveLicense.policy.config.customerActions.topUpOptions;
-                var haveTopupForSeats = topups.Any(x => x.seats != 0);
-                var isSellable = LTLMManager.Instance.ActiveLicense.policy.config.visibility.storefront;
                 EnableErrorButtons(true, true, isSellable, haveTopupForSeats && isSellable);
                 SetActivePage(LTLMUIPages.Error);
             }
@@ -178,18 +174,20 @@ namespace LTLM.UI
                     EnableErrorButtons(false, true, false, false);
                     break;
                 case LicenseStatus.Expired:
-                    // TODO: Built here a smart system that helps the customer go which way.
-                    ErrorInjector.WriteText("License is expired. Buy a new license or a time Topup..");
+                    ErrorInjector.WriteText("License is expired. Buy a new license or a time Topup.");
                     SetActivePage(LTLMUIPages.Error);
-                    var topups = LTLMManager.Instance.ActiveLicense.policy.config.customerActions.topUpOptions;
-                    var haveTopupForDays = topups.Any(x => x.days != 0);
-                    var isSellable = LTLMManager.Instance.ActiveLicense.policy.config.visibility.storefront;
-
-                    EnableErrorButtons(false, true, isSellable, haveTopupForDays && isSellable);
-
+                    var expLicense = LTLMManager.Instance.ActiveLicense;
+                    var expTopups = expLicense?.policy?.config?.customerActions?.topUpOptions;
+                    var haveTopupForDays = expTopups?.Any(x => x.days != 0) ?? false;
+                    var expIsSellable = expLicense?.policy?.config?.visibility?.storefront ?? false;
+                    EnableErrorButtons(false, true, expIsSellable, haveTopupForDays && expIsSellable);
                     break;
+                    
                 case LicenseStatus.GracePeriod:
-                    // TODO: Tell user he's in grace period.
+                    // User is in offline grace period - show notification but allow usage
+                    Debug.Log("[LTLM UI] Running in offline grace period.");
+                    // Don't interrupt the user, but they should know they're offline
+                    // Optionally show a non-blocking toast/banner (depends on UI implementation)
                     break;
                 case LicenseStatus.Terminated:
                     ErrorInjector.WriteText("Termination Notice has been sent. Application will close now");
@@ -241,14 +239,24 @@ namespace LTLM.UI
                 switch (status)
                 {
                     case LicenseStatus.Active:
+                    case LicenseStatus.GracePeriod: // Also valid, just in grace mode
                         if (ShouldShowStartPage)
                             SetActivePage(LTLMUIPages.Start);
                         else
                         {
                             HideUI();
-                            Debug.Log(LTLMManager.Instance.IsAuthenticated);
                         }
-
+                        break;
+                        
+                    case LicenseStatus.ValidNoSeat:
+                        // License is valid but no seat available - show seat management
+                        ErrorInjector.WriteText("All seats are in use. Release a seat or wait for one to become available.");
+                        SetActivePage(LTLMUIPages.Error);
+                        var vnsLicense = LTLMManager.Instance.ActiveLicense;
+                        var vnsTopups = vnsLicense?.policy?.config?.customerActions?.topUpOptions;
+                        var haveTopupForSeats = vnsTopups?.Any(x => x.seats != 0) ?? false;
+                        var vnsSellable = vnsLicense?.policy?.config?.visibility?.storefront ?? false;
+                        EnableErrorButtons(true, false, vnsSellable, haveTopupForSeats && vnsSellable);
                         break;
                 }
             }

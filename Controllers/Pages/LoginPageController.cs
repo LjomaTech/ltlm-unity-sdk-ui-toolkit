@@ -15,6 +15,10 @@ public class LoginPageController : MonoBehaviour
         LTLMManager.Instance.GetBuyablePolicies((policies) =>
         {
             BuyablePolicies = policies;
+        }, (error) =>
+        {
+            Debug.LogWarning($"[LTLM UI] Failed to load buyable policies: {error}");
+            BuyablePolicies = new List<PolicyData>();
         });
     }
 

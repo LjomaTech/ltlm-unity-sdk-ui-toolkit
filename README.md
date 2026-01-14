@@ -23,7 +23,7 @@ You must install these dependencies separately:
 
 1. **LTLM SDK** - Add to `manifest.json`:
    ```json
-   "com.ljomatech.ltlm": "https://github.com/LjomaTech/ltlm-unity-sdk.git"
+   "io.ltlm.sdk": "https://github.com/LjomaTech/ltlm-unity-sdk.git"
    ```
 
 2. **LjomaTech Unity Forms** - Add to `manifest.json`:

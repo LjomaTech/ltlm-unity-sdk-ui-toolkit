@@ -17,21 +17,21 @@ namespace LTLM.UI
         {
             if (LTLM.SDK.Unity.LTLMManager.Instance.IsAuthenticated)
             {
-                Debug.LogWarning("ERROR HERE?");
+                // Already authenticated - shouldn't happen but handle gracefully
+                SendCallback(true, null);
+                return;
             }
-            else
+            
+            LTLMManager.Instance.VerifyOTP(values["email"], values["otp"], list  =>
             {
-                LTLMManager.Instance.VerifyOTP(values["email"], values["otp"], list  =>
-                {
-                    Debug.Log(JsonConvert.SerializeObject(list));
-                    OnSuccessEmailCallback.Invoke(values["email"]);
-                    SendCallback(true, null);
-                    OnSuccessListCallback.Invoke(list);
-                }, (error) =>
-                {
-                    SendCallback(false, new Dictionary<string, string>(new[] { new KeyValuePair<string, string>("otp", error) }));
-                });
-            }
+                Debug.Log(JsonConvert.SerializeObject(list));
+                OnSuccessEmailCallback.Invoke(values["email"]);
+                SendCallback(true, null);
+                OnSuccessListCallback.Invoke(list);
+            }, (error) =>
+            {
+                SendCallback(false, new Dictionary<string, string>(new[] { new KeyValuePair<string, string>("otp", error) }));
+            });
         }
     }
 }

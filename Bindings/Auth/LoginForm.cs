@@ -15,19 +15,20 @@ namespace LTLM.UI
         {
             if (LTLM.SDK.Unity.LTLMManager.Instance.IsAuthenticated)
             {
-                Debug.LogWarning("ERROR HERE?");
+                // Already authenticated - proceed directly
+                SendCallback(true, null);
+                EmailCallbackUIHandling?.Invoke(values["email"]);
+                return;
             }
-            else
+            
+            LTLMManager.Instance.RequestOTP(values["email"], () =>
             {
-                LTLMManager.Instance.RequestOTP(values["email"], () =>
-                {
-                    SendCallback(true, null);
-                    EmailCallbackUIHandling?.Invoke(values["email"]);
-                }, (error) =>
-                {
-                    SendCallback(false, new Dictionary<string, string>(new[] { new KeyValuePair<string, string>("email", error) }));
-                });
-            }
+                SendCallback(true, null);
+                EmailCallbackUIHandling?.Invoke(values["email"]);
+            }, (error) =>
+            {
+                SendCallback(false, new Dictionary<string, string>(new[] { new KeyValuePair<string, string>("email", error) }));
+            });
         }
     }
 }

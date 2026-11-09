@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using LTLM.UI;
 using UnityEngine;
 
@@ -14,37 +12,33 @@ public enum FeatureBinding
     Airgapped = 1 << 4,
 }
 
-
+/// <summary>
+/// Shows this GameObject only when the given UI feature is enabled on the <see cref="LTLMUIManager"/>.
+/// </summary>
 public class ButtonBindingFeature : MonoBehaviour
 {
     public FeatureBinding feature;
     private FeatureBinding _previous;
-    
+
     private void Start()
     {
-        if ((LTLMUIManager.Instance.features & feature) != 0)
-        {
-            gameObject.SetActive(true);
-        }
-        else
-        {
-            gameObject.SetActive(false);
-        }
+        Apply();
     }
-    
+
+    public void Apply()
+    {
+        var ui = LTLMUIManager.Instance;
+        if (ui == null) return; // keep the designer's default state until the UI manager exists
+        gameObject.SetActive((ui.features & feature) != 0);
+    }
+
     private void OnValidate()
     {
-        if (feature == _previous)
-            return;
+        if (feature == _previous) return;
 
+        // Keep only the newly selected flag (single-select behaviour in the inspector)
         var changed = feature ^ _previous;
-
-        if (changed != 0)
-        {
-            // Keep only the newly selected flag
-            feature = changed;
-        }
-
+        if (changed != 0) feature = changed;
         _previous = feature;
     }
 }

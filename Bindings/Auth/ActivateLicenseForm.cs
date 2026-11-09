@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using LTLM.SDK.Unity;
-using UnityEngine;
 
 namespace LTLM.UI
 {
@@ -8,24 +7,37 @@ namespace LTLM.UI
     {
         public override void FormRequest(Dictionary<string, string> values)
         {
-            if (LTLM.SDK.Unity.LTLMManager.Instance.IsAuthenticated)
+            var manager = LTLMManager.Instance;
+            if (manager == null)
             {
-                // Already authenticated - just succeed
+                SendCallback(false, Error("licenseKey", "LTLM SDK is not initialised."));
+                return;
+            }
+
+            string key = Get(values, "licenseKey");
+            if (string.IsNullOrEmpty(key))
+            {
+                SendCallback(false, Error("licenseKey", "Please enter a license key."));
+                return;
+            }
+
+            if (manager.IsAuthenticated && manager.ActiveLicense?.licenseKey == key)
+            {
                 SendCallback(true, null);
                 return;
             }
-            
-            LTLMManager.Instance.ActivateLicense(values["licenseKey"], (license, status) =>
+
+            manager.ActivateLicense(key, (license, status) =>
             {
-                if (status != LicenseStatus.Active)
+                if (status != LicenseStatus.Active && status != LicenseStatus.GracePeriod && status != LicenseStatus.OfflineGrace)
                 {
-                    SendCallback(false, new Dictionary<string, string>(new[] { new KeyValuePair<string, string>("licenseKey", "Activation Failed, License is currently " +  status.ToString()) }));
-                    return; // CRITICAL: Was missing - caused SendCallback(true) to run after error
+                    SendCallback(false, Error("licenseKey", "Activation failed. License is currently " + status));
+                    return;
                 }
                 SendCallback(true, null);
-            }, (error) =>
+            }, error =>
             {
-                SendCallback(false, new Dictionary<string, string>(new[] { new KeyValuePair<string, string>("licenseKey", error) }));
+                SendCallback(false, Error("licenseKey", error));
             });
         }
     }

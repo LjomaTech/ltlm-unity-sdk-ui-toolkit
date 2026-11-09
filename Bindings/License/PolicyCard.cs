@@ -1,16 +1,14 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Globalization;
 using LTLM.SDK.Core.Models;
 using LTLM.SDK.Unity;
 using LTLM.UI;
-using Newtonsoft.Json;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// One purchasable policy in the in-app store. Re-usable: SetupPolicy can be called repeatedly.
+/// </summary>
 public class PolicyCard : MonoBehaviour
 {
     public TMP_Text PolicyName;
@@ -23,76 +21,102 @@ public class PolicyCard : MonoBehaviour
     public TMP_Text Price;
     public Button Buy;
 
-    public void SetupPolicy(PolicyData policyData, string email)
+    private PolicyData _policy;
+    private string _email;
+
+    private void Awake()
     {
-        PolicyName.text = policyData.name;
-        PolicyDescription.text = policyData.shortDescription;
-        if (policyData.config.limits.tokens.enabled)
-            Tokens.text = "Tokens : " + policyData.config.limits.tokens.maxTokens.ToString();
-        else
-        {
-            Tokens.text = "";
-        }
-
-        if (policyData.config.limits.seats.enabled)
-            Seats.text = "Seats : " + policyData.config.limits.seats.maxSeats.ToString();
-        else
-        {
-            Seats.text = "";
-        }
-
-        var features = policyData.config.features;
-        List<string> entitledCapabilities = new List<string>();
-
-        for (int i = 0; i < features.Count; i++)
-        {
-            if (features.ElementAt(i).Value == null) continue;
-            string sVal = features.ElementAt(i).Value.ToLower();
-            if (sVal == "true" || sVal == "1")
-            {
-                entitledCapabilities.Add(features.ElementAt(i).Key);
-            }
-        }
-
-        var CapabilitesString = "Capabilites : ";
-        for (int i = 0; i < entitledCapabilities.Count; i++)
-        {
-            CapabilitesString += entitledCapabilities[i];
-            if (i != 0)
-            {
-                CapabilitesString += ", ";
-            }
-        }        
-        
-        Capabilites.text = CapabilitesString;
-        Type.text = policyData.type.ToString();
-        if(policyData.type == "subscription")
-            Price.text = policyData.recurringPrice.ToString() + "$ / " + policyData.recurringIntervalCount.ToString() + " " + policyData.recurringInterval.ToString();
-        else if (policyData.type == "trial")
-        {
-            Price.text = "Free for " + policyData.recurringIntervalCount.ToString() + " " + policyData.recurringInterval.ToString();
-        } else if (policyData.type == "usage-based")
-        {
-            if (policyData.config.limits.time.mode == "duration")
-            {
-                Time.text = policyData.config.limits.time.durationDays.ToString() + " Days";
-            }
-            Price.text = policyData.price.ToString() + "$";
-        }
-        else
-        {
-            Time.text = policyData.config.limits.time.durationDays.ToString() + " Days";
-            Price.text = policyData.price.ToString() + "$";
-        }
-
-        Buy.onClick.AddListener(() =>
-        {
-            LTLMManager.Instance.CreateCheckoutSession(policyData.PolicyID.ToString(), email, LTLMUIManager.Instance.BuyCompleteRedirectURL, OnUrlReceived);
-        });
+        if (Buy != null) Buy.onClick.AddListener(OnBuyClicked);
     }
 
-    private void OnUrlReceived(string CheckoutURL)
+    private void OnDestroy()
     {
-        Application.OpenURL(CheckoutURL);
+        if (Buy != null) Buy.onClick.RemoveListener(OnBuyClicked);
+    }
+
+    public void SetupPolicy(PolicyData policyData, string email)
+    {
+        _policy = policyData;
+        _email = email;
+        if (policyData == null) return;
+
+        var config = policyData.config;
+        var limits = config?.limits;
+
+        Set(PolicyName, policyData.name);
+        Set(PolicyDescription, policyData.shortDescription ?? policyData.description);
+
+        bool tokensEnabled = limits?.tokens?.enabled == true;
+        Set(Tokens, tokensEnabled ? $"Tokens: {limits.tokens.maxTokens}" : string.Empty);
+
+        bool seatsEnabled = limits?.seats?.enabled == true;
+        Set(Seats, seatsEnabled ? $"Seats: {limits.seats.maxSeats}" : string.Empty);
+
+        var caps = config?.EnabledCapabilities;
+        Set(Capabilites, caps != null && caps.Count > 0 ? "Capabilities: " + string.Join(", ", caps) : string.Empty);
+
+        Set(Type, policyData.type ?? string.Empty);
+
+        string currency = string.IsNullOrEmpty(policyData.currency) ? "$" : policyData.currency + " ";
+        string type = policyData.type ?? string.Empty;
+        string duration = limits?.time?.mode == "duration" && limits.time.durationDays > 0
+            ? $"{limits.time.durationDays} Days"
+            : string.Empty;
+
+        switch (type)
+        {
+            case "subscription":
+                Set(Time, string.Empty);
+                Set(Price, $"{FormatMoney(policyData.recurringPrice ?? policyData.price, currency)} / {policyData.recurringIntervalCount ?? 1} {policyData.recurringInterval}");
+                break;
+            case "trial":
+                Set(Time, duration);
+                Set(Price, string.IsNullOrEmpty(duration)
+                    ? "Free trial"
+                    : $"Free for {duration}");
+                break;
+            case "perpetual":
+                Set(Time, "Lifetime");
+                Set(Price, FormatMoney(policyData.price, currency));
+                break;
+            default:
+                Set(Time, duration);
+                Set(Price, FormatMoney(policyData.price, currency));
+                break;
+        }
+
+        if (Buy != null) Buy.interactable = true;
+    }
+
+    private static string FormatMoney(float? amount, string currency)
+    {
+        if (!amount.HasValue || amount.Value <= 0f) return "Free";
+        return currency + amount.Value.ToString("0.##", CultureInfo.InvariantCulture);
+    }
+
+    private static void Set(TMP_Text target, string value)
+    {
+        if (target == null) return;
+        target.text = value ?? string.Empty;
+        target.gameObject.SetActive(!string.IsNullOrEmpty(value));
+    }
+
+    private void OnBuyClicked()
+    {
+        if (_policy == null || LTLMManager.Instance == null) return;
+        if (Buy != null) Buy.interactable = false;
+
+        string redirect = LTLMUIManager.Instance != null ? LTLMUIManager.Instance.BuyCompleteRedirectURL : string.Empty;
+        LTLMManager.Instance.CreateCheckoutSession(_policy.PolicyID.ToString(), _email, redirect,
+            url =>
+            {
+                if (Buy != null) Buy.interactable = true;
+                if (!string.IsNullOrEmpty(url)) Application.OpenURL(url);
+            },
+            error =>
+            {
+                if (Buy != null) Buy.interactable = true;
+                Debug.LogWarning("[LTLM UI] Checkout link failed: " + error);
+            });
     }
 }

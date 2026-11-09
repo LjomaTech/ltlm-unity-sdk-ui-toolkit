@@ -1,10 +1,6 @@
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using LTLM.SDK.Core.Models;
 using LTLM.SDK.Unity;
-using Newtonsoft.Json;
-using UnityEngine;
 using UnityEngine.Events;
 
 namespace LTLM.UI
@@ -13,24 +9,32 @@ namespace LTLM.UI
     {
         public UnityEvent<List<LicenseData>> OnSuccessListCallback;
         public UnityEvent<string> OnSuccessEmailCallback;
+
         public override void FormRequest(Dictionary<string, string> values)
         {
-            if (LTLM.SDK.Unity.LTLMManager.Instance.IsAuthenticated)
+            var manager = LTLMManager.Instance;
+            if (manager == null)
             {
-                // Already authenticated - shouldn't happen but handle gracefully
-                SendCallback(true, null);
+                SendCallback(false, Error("otp", "LTLM SDK is not initialised."));
                 return;
             }
-            
-            LTLMManager.Instance.VerifyOTP(values["email"], values["otp"], list  =>
+
+            string email = Get(values, "email");
+            string otp = Get(values, "otp");
+            if (string.IsNullOrEmpty(otp))
             {
-                Debug.Log(JsonConvert.SerializeObject(list));
-                OnSuccessEmailCallback.Invoke(values["email"]);
+                SendCallback(false, Error("otp", "Please enter the verification code."));
+                return;
+            }
+
+            manager.VerifyOTP(email, otp, list =>
+            {
+                OnSuccessEmailCallback?.Invoke(email);
                 SendCallback(true, null);
-                OnSuccessListCallback.Invoke(list);
-            }, (error) =>
+                OnSuccessListCallback?.Invoke(list ?? new List<LicenseData>());
+            }, error =>
             {
-                SendCallback(false, new Dictionary<string, string>(new[] { new KeyValuePair<string, string>("otp", error) }));
+                SendCallback(false, Error("otp", error));
             });
         }
     }

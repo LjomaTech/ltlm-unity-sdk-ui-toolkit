@@ -1,14 +1,12 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+using System;
 
 namespace LTLM.UI
 {
-    public class ActivateLicenseUI : FormBinding
+    /// <summary>
+    /// Kept for prefabs that still reference it. Behaves exactly like <see cref="ActivateLicenseForm"/>.
+    /// </summary>
+    [Obsolete("Use ActivateLicenseForm")]
+    public class ActivateLicenseUI : ActivateLicenseForm
     {
-        public override void FormRequest(Dictionary<string, string> values)
-        {
-            throw new System.NotImplementedException();
-        }
     }
 }

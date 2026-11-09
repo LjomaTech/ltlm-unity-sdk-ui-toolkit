@@ -1,14 +1,13 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
+using System.Globalization;
 using LTLM.SDK.Core.Models;
 using LTLM.SDK.Unity;
-using Newtonsoft.Json;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// One license in the customer's portfolio (login flow). Re-usable: SetupLicense can be called repeatedly.
+/// </summary>
 public class LicenseCard : MonoBehaviour
 {
     public TMP_Text Key;
@@ -19,68 +18,79 @@ public class LicenseCard : MonoBehaviour
     public TMP_Text ExpireDate;
     public Button Activate;
 
+    [Header("Formatting")]
+    public string dateFormat = "dd-MM-yyyy";
+
+    private LicenseData _license;
+
+    private void Awake()
+    {
+        if (Activate != null) Activate.onClick.AddListener(OnActivateClicked);
+    }
+
+    private void OnDestroy()
+    {
+        if (Activate != null) Activate.onClick.RemoveListener(OnActivateClicked);
+    }
+
     public void SetupLicense(LicenseData licenseData)
     {
-        // licenseKey is LIC-0BEC53C679BF012F, I want it to be LIC-0BExxxxxxxxF012F
-        var licenseKey = licenseData.licenseKey;
-        licenseKey = licenseKey.Replace(licenseKey.Substring(4, 12), "xxxxxxxxxx");
-        Key.text = licenseKey;
-        PolicyName.text = licenseData.policy?.name ?? "Unknown Policy";
+        _license = licenseData;
+        if (licenseData == null) return;
 
-        // Use licenseData.config (resolved config) instead of policy.config
+        if (Key != null) Key.text = BindToLicenseStat.MaskKey(licenseData.licenseKey);
+        if (PolicyName != null) PolicyName.text = licenseData.policy?.name ?? "Unknown Policy";
+
         var config = licenseData.config;
-        
-        if (config?.limits?.tokens?.enabled == true)
-            TokensUsage.text = "Tokens : " + licenseData.tokensRemaining.ToString() + "/" +
-                               licenseData.tokensLimit.ToString();
-        
-        if (config?.limits?.seats?.enabled == true)
-            ActiveSeats.text = "Active Seats: " +
-                               ((licenseData.activeSeats != null) ? licenseData.activeSeats.ToString() : "0") +
-                               "/" +
-                               (config.limits.seats.maxSeats > 0 ? config.limits.seats.maxSeats.ToString() : "1");
 
-        var CapabilitesList = LTLMManager.Instance.GetEntitledCapabilites(licenseData);
-        var CapabilitesString = "Capabilites : ";
-        for (int i = 0; i < CapabilitesList.Count; i++)
+        if (TokensUsage != null)
         {
-            Debug.Log("CapabilitesList[i] : " + CapabilitesList[i]);
-            CapabilitesString += CapabilitesList[i];
-            if (i != 0)
-            {
-                CapabilitesString += ", ";
-            }
+            bool tokens = config?.limits?.tokens?.enabled == true || licenseData.tokensEnabled == true;
+            TokensUsage.text = tokens
+                ? $"Tokens: {licenseData.tokensRemaining?.ToString() ?? "∞"}/{licenseData.tokensLimit?.ToString() ?? "∞"}"
+                : string.Empty;
+            TokensUsage.gameObject.SetActive(tokens);
         }
 
-        Capabilites.text = CapabilitesString.ToString();
-
-        if (licenseData.policy?.type == "perpetual")
-            ExpireDate.text = "perpetual";
-        else
+        if (ActiveSeats != null)
         {
-            if (licenseData.policy?.type == "usage-based")
-            {
-                // Use config.limits.time instead of policy.config.limits.time
-                if (config?.limits?.time?.mode == "duration")
-                {
-                    ExpireDate.text =
-                        "Expire At : " + DateTime.Parse(licenseData.validUntil).ToString("dd-MM-yyyy");
-                }
-                else
-                {
-                    ExpireDate.text = "perpetual";
-                }
-            }
-            else
-            {
-                ExpireDate.text =
-                    "Expire At : " + DateTime.Parse(licenseData.validUntil).ToString("dd-MM-yyyy");
-            }
+            bool seats = config?.limits?.seats?.enabled == true || licenseData.seatsEnabled == true;
+            int max = licenseData.maxConcurrentSeats ?? config?.limits?.seats?.maxSeats ?? 1;
+            ActiveSeats.text = seats ? $"Active Seats: {licenseData.activeSeats ?? 0}/{(max > 0 ? max : 1)}" : string.Empty;
+            ActiveSeats.gameObject.SetActive(seats);
         }
 
-        Activate.onClick.AddListener(() =>
+        if (Capabilites != null)
         {
-            LTLMManager.Instance.ActivateLicense(licenseData.licenseKey, (license, status) => { });
-        });
+            var caps = LTLMManager.Instance != null
+                ? LTLMManager.Instance.GetEntitledCapabilities(licenseData)
+                : new System.Collections.Generic.List<string>();
+            Capabilites.text = caps.Count > 0 ? "Capabilities: " + string.Join(", ", caps) : "Capabilities: -";
+        }
+
+        if (ExpireDate != null)
+        {
+            var expiry = licenseData.ValidUntilUtc;
+            ExpireDate.text = licenseData.IsPerpetual || !expiry.HasValue
+                ? "Perpetual"
+                : "Expires: " + expiry.Value.ToLocalTime().ToString(dateFormat, CultureInfo.InvariantCulture);
+        }
+
+        if (Activate != null)
+        {
+            bool activatable = string.Equals(licenseData.status, "active", System.StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(licenseData.status, "grace_period", System.StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(licenseData.status, "VALID_NO_SEAT", System.StringComparison.OrdinalIgnoreCase);
+            Activate.interactable = activatable;
+        }
+    }
+
+    private void OnActivateClicked()
+    {
+        if (_license == null || LTLMManager.Instance == null) return;
+        if (Activate != null) Activate.interactable = false;
+        LTLMManager.Instance.ActivateLicense(_license.licenseKey,
+            (license, status) => { if (Activate != null) Activate.interactable = true; },
+            error => { if (Activate != null) Activate.interactable = true; });
     }
 }

@@ -1,0 +1,17 @@
+{
+  "name": "io.ltlm.ui",
+  "version": "1.1.0",
+  "displayName": "LTLM UI",
+  "description": "Drop-in uGUI flows for LTLM license activation, customer login, purchasing, and license status.",
+  "unity": "2021.3",
+  "author": {
+    "name": "LjomaTech",
+    "email": "support@ljomatech.com",
+    "url": "https://ltlm.ljomatech.com"
+  },
+  "dependencies": {
+    "com.ljomatech.forms": "1.0.0",
+    "com.unity.textmeshpro": "3.0.6",
+    "io.ltlm.sdk": "1.3.0"
+  }
+}

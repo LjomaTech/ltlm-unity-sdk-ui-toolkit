@@ -1,6 +1,7 @@
 using System;
 using LTLM.SDK.Core.Models;
 using LTLM.SDK.Unity;
+using LTLM.UI;
 using UnityEngine;
 
 /// <summary>
@@ -32,7 +33,7 @@ public enum LicenseFeatureType
     /// <summary>Check if specific capability is enabled</summary>
     HasCapability,
 
-    /// <summary>License is currently active</summary>
+    /// <summary>License is currently active (includes grace / offline grace)</summary>
     IsActive,
 
     /// <summary>License is in trial period</summary>
@@ -44,14 +45,24 @@ public enum LicenseFeatureType
     /// <summary>User can release other seats</summary>
     CanReleaseSeats,
 
-    GracePeriod
+    /// <summary>License is expired but inside the server grace period</summary>
+    GracePeriod,
+
+    /// <summary>The SDK is running from cache because the server is unreachable</summary>
+    IsOfflineGrace,
+
+    /// <summary>The policy sells top-ups and the license allows buying them</summary>
+    CanBuyTopUps,
+
+    /// <summary>There are token consumptions waiting to sync</summary>
+    HasPendingConsumptions
 }
 
 /// <summary>
 /// Conditionally activates/deactivates a GameObject based on license features.
-/// Useful for showing/hiding UI elements based on license type or capabilities.
+/// Refreshed at most once per frame after any license change.
 /// </summary>
-public class BindActiveToLicenseFeature : MonoBehaviour
+public class BindActiveToLicenseFeature : LTLMUIBinding
 {
     [Header("Feature Check")] [Tooltip("Which feature to check")]
     public LicenseFeatureType feature;
@@ -63,59 +74,29 @@ public class BindActiveToLicenseFeature : MonoBehaviour
     public string capabilityName;
 
     [Header("Behavior")]
-    [Tooltip("If true, activates this GameObject when condition is met. If false, activates target object.")]
+    [Tooltip("If true, toggles the children of this GameObject. If false, toggles the target object.")]
     public bool activateSelf = true;
 
     [Tooltip("Alternative GameObject to activate/deactivate (if activateSelf is false)")]
     public GameObject targetObject;
 
-    private void OnEnable()
-    {
-        // Subscribe to license events
-        LTLMManager.OnValidationCompleted += OnValidationCompleted;
-        LTLMManager.OnLicenseStatusChanged += OnLicenseStatusChanged;
+    private bool? _lastState;
 
-        // Update immediately
-        // UpdateActivation();
-    }
+    /// <summary>Updates the activation state based on current license.</summary>
+    public void UpdateActivation() => Refresh();
 
-    private void OnDisable()
-    {
-        // Unsubscribe from events
-        LTLMManager.OnValidationCompleted -= OnValidationCompleted;
-        LTLMManager.OnLicenseStatusChanged -= OnLicenseStatusChanged;
-    }
-
-    private void OnValidationCompleted(bool success, LicenseStatus status)
-    {
-        UpdateActivation();
-    }
-
-    private void OnLicenseStatusChanged(LicenseStatus status)
-    {
-        UpdateActivation();
-    }
-
-    /// <summary>
-    /// Updates the activation state based on current license
-    /// </summary>
-    public void UpdateActivation()
+    public override void Refresh()
     {
         bool conditionMet = CheckFeature();
+        if (invertCheck) conditionMet = !conditionMet;
 
-        if (invertCheck)
-        {
-            conditionMet = !conditionMet;
-        }
+        if (_lastState == conditionMet) return; // no SetActive churn when nothing changed
+        _lastState = conditionMet;
 
         if (activateSelf)
         {
-            // We can't deactivate ourselves if we're the target, so we use a different approach
-            // Note: This component stays enabled, but we can control children or visibility
-            foreach (Transform child in transform)
-            {
-                child.gameObject.SetActive(conditionMet);
-            }
+            for (int i = 0; i < transform.childCount; i++)
+                transform.GetChild(i).gameObject.SetActive(conditionMet);
         }
         else if (targetObject != null)
         {
@@ -136,13 +117,16 @@ public class BindActiveToLicenseFeature : MonoBehaviour
             switch (feature)
             {
                 case LicenseFeatureType.GracePeriod:
-                    return license.status == "grace_period";
+                    return manager.GetLicenseStatus() == LicenseStatus.GracePeriod;
+
+                case LicenseFeatureType.IsOfflineGrace:
+                    return manager.IsInOfflineGrace;
 
                 case LicenseFeatureType.HasExpiration:
-                    return HasExpiration(license);
+                    return !license.IsPerpetual;
 
                 case LicenseFeatureType.IsPerpetual:
-                    return !HasExpiration(license);
+                    return license.IsPerpetual;
 
                 case LicenseFeatureType.TokensEnabled:
                     return license.tokensEnabled ?? false;
@@ -160,21 +144,27 @@ public class BindActiveToLicenseFeature : MonoBehaviour
                     return license.offlineEnabled ?? false;
 
                 case LicenseFeatureType.HasCapability:
-                    if (string.IsNullOrEmpty(capabilityName)) return false;
-                    return manager.IsEntitled(capabilityName);
+                    return !string.IsNullOrEmpty(capabilityName) && manager.IsEntitled(capabilityName);
 
                 case LicenseFeatureType.IsActive:
                     return manager.IsAuthenticated;
 
                 case LicenseFeatureType.IsTrial:
-                    return license.policy?.type?.ToLower() == "trial" ||
-                           license.subscriptionStatus?.ToLower() == "trialing";
+                    return string.Equals(license.policy?.type, "trial", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(license.subscriptionStatus, "trialing", StringComparison.OrdinalIgnoreCase);
 
                 case LicenseFeatureType.CanReleaseDevices:
                     return license.config?.customerActions?.allowHardwareRelease ?? false;
 
                 case LicenseFeatureType.CanReleaseSeats:
                     return license.config?.customerActions?.allowRemoteSeatRelease ?? false;
+
+                case LicenseFeatureType.CanBuyTopUps:
+                    return (license.config?.customerActions?.canBuyTopUps ?? false) &&
+                           (license.policy?.ResolvedTopUpOptions.Count ?? 0) > 0;
+
+                case LicenseFeatureType.HasPendingConsumptions:
+                    return manager.PendingConsumptionCount > 0;
 
                 default:
                     return false;
@@ -187,21 +177,9 @@ public class BindActiveToLicenseFeature : MonoBehaviour
         }
     }
 
-    private bool HasExpiration(LicenseData license)
+    private static bool IsSubscription(LicenseData license)
     {
-        // No expiration date = perpetual
-        if (license.policy.type == "perpetual" || license.config?.limits?.time?.mode != "duration")
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private bool IsSubscription(LicenseData license)
-    {
-        // Check policy type
-        string policyType = license.policy?.type?.ToLower();
+        string policyType = license.policy?.type?.ToLowerInvariant();
         return policyType == "subscription" || policyType == "trial";
     }
 }
